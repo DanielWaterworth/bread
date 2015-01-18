@@ -18,7 +18,8 @@ data QBF a =
   Or [QBF a] |
   Not (QBF a) |
   Exists (Scope () QBF a) |
-  Forall (Scope () QBF a)
+  Forall (Scope () QBF a) |
+  Let (QBF a) (Scope () QBF a)
     deriving (Show, Read, Eq, Ord, Functor, Foldable, Traversable)
 
 instance Eq1 QBF
@@ -40,6 +41,7 @@ instance Monad QBF where
   Not x >>= f = Not $ x >>= f
   Exists x >>= f = Exists $ x >>>= f
   Forall x >>= f = Forall $ x >>>= f
+  Let x y >>= f = Let (x >>= f) (y >>>= f)
 
 constantProp :: Eq a => QBF a -> QBF a
 constantProp (Var a) = Var a
@@ -63,26 +65,26 @@ constantProp (Or xs) =
     else
       Or xs'
 constantProp (Not x) =
-  let
-    x' = constantProp x
-  in
-    case x' of
-      Const b -> Const (not b)
-      _ -> Not x'
+  case constantProp x of
+    Const b -> Const (not b)
+    x' -> Not x'
 constantProp (Exists x) =
-  let
-    x' = constantProp $ fromScope x
-  in
-    case x' of
-      Const b -> Const b
-      _ -> Exists $ toScope $ x'
+  case constantProp $ fromScope x of
+    Const b -> Const b
+    x' -> Exists $ toScope $ x'
 constantProp (Forall x) =
-  let
-    x' = constantProp $ fromScope x
-  in
-    case x' of
-      Const b -> Const b
-      _ -> Forall $ toScope $ x'
+  case constantProp $ fromScope x of
+    Const b -> Const b
+    x' -> Forall $ toScope $ x'
+constantProp (Let x y) =
+  case constantProp x of
+    Const b ->
+      constantProp (instantiate1 (Const b) y)
+    x' ->
+      case constantProp $ fromScope y of
+        Const b -> Const b
+        y' ->
+          Let x' $ toScope y'
 
 --solve :: QBF Int -> IO (Maybe (IntMap Bool))
 
