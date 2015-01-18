@@ -46,24 +46,28 @@ instance Monad QBF where
 constantProp :: Eq a => QBF a -> QBF a
 constantProp (Var a) = Var a
 constantProp (Const b) = Const b
-constantProp (And []) = Const True
 constantProp (And xs) =
   let
-    xs' = map constantProp xs
+    xs' = filter (/= Const True) $ map constantProp xs
   in
     if Const False `elem` xs' then
       Const False
     else
-      And xs'
-constantProp (Or []) = Const False
+      case xs' of
+        [] -> Const True
+        [x] -> x
+        _ -> And xs'
 constantProp (Or xs) =
   let
-    xs' = map constantProp xs
+    xs' = filter (/= Const False) $ map constantProp xs
   in
     if Const True `elem` xs' then
       Const True
     else
-      Or xs'
+      case xs' of
+        [] -> Const False
+        [x] -> x
+        _ -> Or xs'
 constantProp (Not x) =
   case constantProp x of
     Const b -> Const (not b)
